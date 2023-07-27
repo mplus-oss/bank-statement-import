@@ -126,7 +126,7 @@ msgstr ""
 #. module: account_statement_import
 #: model_terms:ir.ui.view,arch_db:account_statement_import.account_statement_import_form
 msgid "Import and View"
-msgstr ""
+msgstr "Lancer l'import"
 
 #. module: account_statement_import
 #: model:ir.model,name:account_statement_import.model_account_journal
