@@ -54,8 +54,10 @@ class AccountStatementImportSheetParser(models.TransientModel):
 
     @api.model
     def parse(self, data_file, mapping, filename):
-        journal = self.env["account.journal"].browse(self.env.context.get("journal_id"))
-        currency_code = (journal.currency_id or journal.company_id.currency_id).name
+        journal = self.env["account.journal"].browse(
+            self.env.context.get("journal_id"))
+        currency_code = (
+            journal.currency_id or journal.company_id.currency_id).name
         account_number = journal.bank_account_id.acc_number
 
         lines = self._parse_lines(mapping, data_file, currency_code)
@@ -137,8 +139,11 @@ class AccountStatementImportSheetParser(models.TransientModel):
             "bank_account_column",
         ]
 
+
+    @api.model
     def _parse_lines(self, mapping, data_file, currency_code):
         columns = dict()
+        skip_lines = mapping.skip_lines
         try:
             workbook = xlrd.open_workbook(
                 file_contents=data_file,
@@ -158,26 +163,33 @@ class AccountStatementImportSheetParser(models.TransientModel):
             if mapping.quotechar:
                 csv_options["quotechar"] = mapping.quotechar
             try:
-                decoded_file = data_file.decode(mapping.file_encoding or "utf-8")
+                decoded_file = data_file.decode(
+                    mapping.file_encoding or "utf-8")
             except UnicodeDecodeError:
                 # Try auto guessing the format
-                detected_encoding = chardet.detect(data_file).get("encoding", False)
+                detected_encoding = chardet.detect(
+                    data_file).get("encoding", False)
                 if not detected_encoding:
                     raise UserError(
                         _("No valid encoding was found for the attached file")
                     ) from None
                 decoded_file = data_file.decode(detected_encoding)
             csv_or_xlsx = reader(StringIO(decoded_file), **csv_options)
+            for _ in range(skip_lines):
+                next(csv_or_xlsx)
+
         header = False
         if not mapping.no_header:
             if isinstance(csv_or_xlsx, tuple):
-                header = [str(value) for value in csv_or_xlsx[1].row_values(0)]
+                header = [str(value)
+                          for value in csv_or_xlsx[1].row_values(skip_lines)]
             else:
                 header = [value.strip() for value in next(csv_or_xlsx)]
         for column_name in self._get_column_names():
             columns[column_name] = self._get_column_indexes(
                 header, column_name, mapping
             )
+
         return self._parse_rows(mapping, currency_code, csv_or_xlsx, columns)
 
     def _get_values_from_column(self, values, columns, column_name):
@@ -197,7 +209,7 @@ class AccountStatementImportSheetParser(models.TransientModel):
 
     def _parse_rows(self, mapping, currency_code, csv_or_xlsx, columns):  # noqa: C901
         if isinstance(csv_or_xlsx, tuple):
-            rows = range(1, csv_or_xlsx[1].nrows)
+            rows = range(mapping.skip_lines + 1, csv_or_xlsx[1].nrows)
         else:
             rows = csv_or_xlsx
 
@@ -425,6 +437,8 @@ class AccountStatementImportSheetParser(models.TransientModel):
 
     @api.model
     def _parse_decimal(self, value, mapping):
+        if not value:
+            value = "0"
         if isinstance(value, Decimal):
             return value
         elif isinstance(value, float):

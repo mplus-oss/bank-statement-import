@@ -6,6 +6,8 @@ import logging
 from odoo import _, fields, models
 from odoo.exceptions import UserError
 
+from odoo.exceptions import ValidationError
+
 _logger = logging.getLogger(__name__)
 
 
@@ -33,17 +35,15 @@ class AccountStatementImport(models.TransientModel):
                 return Parser.parse(
                     data_file, self.sheet_mapping_id, self.statement_filename
                 )
-            except BaseException as exc:
-                if self.env.context.get("account_statement_import_txt_xlsx_test"):
-                    raise
+            except Exception as e:
                 _logger.warning("Sheet parser error", exc_info=True)
-                raise UserError(_("Bad file/mapping: ") + str(exc)) from exc
-        return super()._parse_file(data_file)
+                raise ValidationError(str(e))
 
     def _create_bank_statements(self, stmts_vals, result):
         """Set balance_end_real if not already provided by the file."""
         res = super()._create_bank_statements(stmts_vals, result)
-        statements = self.env["account.bank.statement"].browse(result["statement_ids"])
+        statements = self.env["account.bank.statement"].browse(
+            result["statement_ids"])
         for statement in statements:
             if not statement.balance_end_real:
                 amount = sum(statement.line_ids.mapped("amount"))

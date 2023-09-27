@@ -124,6 +124,8 @@ class AccountStatementImportSheetMapping(models.Model):
         help="Partner's bank account",
     )
 
+    skip_lines = fields.Integer(string='Number of lines to Skip', default=0)
+
     _sql_constraints = [
         (
             "check_amount_columns",
